@@ -7,86 +7,67 @@
 
 import SwiftUI
 
-struct TipWarning: ViewModifier {
-    var tip: Int
-    
-    func body(content: Content) -> some View {
-        content
-            .foregroundColor(tip == 0 ? .red : .primary)
-    }
-}
-
-extension View {
-    func tipwarning(with tip: Int) -> some View {
-        modifier(TipWarning(tip: tip))
-    }
-}
-
 struct ContentView: View {
-    @State private var checkAmount = 0.0
-    @State private var numberOfPeople = 2
+    @State private var money = 0.0
+    @State private var people = 2
     @State private var tipPercentage = 20
-    @FocusState private var amountIsFocused: Bool
+    @FocusState private var isFocused: Bool
     
-    let tipPercentages: [Int] = [10, 15, 18, 20, 0]
-
-    var totalForCheck: Double {
-        let tipSelection = Double(tipPercentage)
-        let tipValue = checkAmount / 100 * tipSelection
-        let grandTotal = checkAmount + tipValue
-        
-        return grandTotal
+    let tipPercentages = [10, 15, 18, 20, 0]
+    
+    var checkAmount: Double {
+        let tip = money / 100 * Double(tipPercentage)
+        return money + tip
     }
     
-    var totalPerPerson: Double {
-        let peopleCount = Double(numberOfPeople) + 2
-        let amountPerPerson = totalForCheck / peopleCount
-        
-        return amountPerPerson
+    var checkPerPerson: Double {
+        return checkAmount / Double(people + 2)
     }
     
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    TextField("Amount", value: $checkAmount, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
-                        .keyboardType(.decimalPad)
-                        .focused($amountIsFocused)
-                    
-                    Picker("Number of people", selection: $numberOfPeople) {
-                        ForEach(2..<100) {
-                            Text("\($0) people")
+            ZStack {
+                Text("").frame(maxWidth: .infinity, maxHeight: .infinity).background(.green.gradient).ignoresSafeArea()
+                
+                Form {
+                    Section("How much money") {
+                        TextField("Amount", value: $money, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                        
+                        Picker("Number of people", selection: $people) {
+                            ForEach(2..<100) {
+                                Text("\($0) people")
+                            }
                         }
                     }
+                    
+                    Section("How much tip?") {
+                        Picker("Tip percentage", selection: $tipPercentage) {
+                            ForEach(tipPercentages, id: \.self) {
+                                Text($0, format: .percent)
+                            }
+                        }.pickerStyle(.segmented)
+                    }
+                    
+                    Section("Amount for check") {
+                        Text(checkAmount, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                    }
+                    
+                    Section("Amout per person") {
+                        Text(checkPerPerson, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                    }
                 }
-                
-                Section("How much tip?") {
-                    Picker("Tip Percentage", selection: $tipPercentage) {
-                        ForEach(0..<101) {
-                            Text($0, format: .percent)
+                .navigationTitle(Text("WeSplit6"))
+                .toolbar {
+                    if isFocused {
+                        Button("Done") {
+                            isFocused = false
                         }
-                    }.pickerStyle(.navigationLink)
-                }
-                
-                Section("Amount for check") {
-                    Text(totalForCheck, format: .currency(code: Locale.current.currency?.identifier ?? "USD")).tipwarning(with: tipPercentage)
-                }
-                
-                Section("Amount per person") {
-                    Text(totalPerPerson, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
-                }
-            }
-            .navigationTitle("WeSplit")
-            .toolbar {
-                if amountIsFocused {
-                    Button("Done") {
-                        amountIsFocused = false
                     }
                 }
             }
         }
+        .scrollContentBackground(.hidden)
     }
-    
 }
 
 #Preview {
