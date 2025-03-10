@@ -5,75 +5,87 @@
 //  Created by Seah Park on 3/8/25.
 //
 
+import CoreML
 import SwiftUI
 
 struct ContentView: View {
-    @State private var countries = ["Estonia", "France", "Germany", "Ireland", "Italy", "Nigeria", "Poland", "Spain", "UK", "Ukraine", "US", "Korea"].shuffled()
-    @State private var answer = Int.random(in: 0...2)
-    @State private var score = 0
-    @State private var content = ""
-    @State private var showingScore = false
+    @State private var wakeUp = defaultWakeTime
+    @State private var sleepAmount = 8.0
+    @State private var coffeeAmount = 1
+    
+    var sleepReaults: String {
+        do {
+            let config = MLModelConfiguration()
+            let model = try SleepCalculator(configuration: config)
+            
+            let components = Calendar.current.dateComponents([.hour, .minute], from: wakeUp)
+            let hour = (components.hour ?? 0) * 60 * 60
+            let minute = (components.minute ?? 0) * 60
+            
+            let prediction = try model.prediction(wake: Double(hour + minute), estimatedSleep: sleepAmount, coffee: Double(coffeeAmount))
+            
+            let sleepTime = wakeUp - prediction.actualSleep
+            
+            return sleepTime.formatted(date: .omitted, time: .shortened)
+        } catch {
+            return "There was an error"
+        }
+    }
+    
+    static var defaultWakeTime: Date {
+        var components = DateComponents()
+        components.hour = 7
+        components.minute = 0
+        return Calendar.current.date(from: components) ?? .now
+    }
 
     var body: some View {
-        ZStack {
-            Text("").frame(maxWidth: .infinity, maxHeight: .infinity).background(.indigo.gradient)
-            VStack {
-                Spacer()
-                
-                Text("Guess The Flag").font(.title.bold())
-                    .foregroundColor(.white)
-                
-                VStack {
-                    Text("Tap the flag of").font(.headline.bold()).foregroundColor(.secondary)
-                    Text(countries[answer]).font(.title.bold())
+        NavigationStack {
+            Form {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("When do you want to wake up").font(.headline)
                     
-                    VStack(spacing: 20) {
-                        ForEach(0..<3) { number in
-                            Button {
-                                checkAnswer(number)
-                            } label: {
-                                Image(countries[number])
-                                    .clipShape(.capsule).shadow(radius: 5)
+                    DatePicker("Please enter a time", selection: $wakeUp, displayedComponents: .hourAndMinute).labelsHidden()
+                    
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Desired amount of sleep").font(.headline)
+                        
+                        Stepper("\(sleepAmount.formatted()) hours", value: $sleepAmount, in: 4...12, step: 0.25)
+                    }
+                    
+                    
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Daily coffee intake").font(.headline)
+                        
+                        Picker("Number of cups", selection: $coffeeAmount) {
+                            ForEach(1...20, id: \.self) {
+                                Text("^[\($0) cup](inflect: true)")
                             }
+                        }
+                        
+                    }
+                    
+                    Section {
+                        HStack {
+                            Text("Your ideal bed time is...").font(.title2)
+                            
+                            Spacer()
+                            
+                            Text(sleepReaults)
+                                .font(.title3)
+                                .foregroundColor(.blue)
                         }
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 15)
-                .background(.regularMaterial)
-                .cornerRadius(20)
-                
-                Spacer()
-                Spacer()
-                
-                Text("Score: \(score)").font(.title2.bold())
-                    .foregroundColor(.white)
-                
-                Spacer()
+                .navigationTitle("BetterRest")
             }
-            .padding()
         }
-        .alert(content, isPresented: $showingScore) {
-            Button("Continue", action: continueGame)
-        } message: {
-            Text("Your score: \(score)")
-        }
-        
-    }
-
-    func checkAnswer(_ selected: Int) {
-        if selected == answer {
-            score += 1
-            content = "Correct"
-        } else {
-            content = "Wrong"
-        }
-        showingScore = true
     }
     
-    func continueGame() {
-        countries.shuffle()
-        answer = Int.random(in: 0...2)
+    func exampleDates() {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: .now)
+        let hour = components.hour ?? 0
+        let minute = components.minute ?? 0
     }
 }
 
