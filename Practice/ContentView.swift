@@ -5,89 +5,142 @@
 //  Created by Seah Park on 3/8/25.
 //
 
-import CoreML
 import SwiftUI
 
 struct ContentView: View {
-    @State private var wakeUp = defaultWakeTime
-    @State private var sleepAmount = 8.0
-    @State private var coffeeAmount = 1
+    @State private var usedWords = [String]()
+    @State private var rootWord = ""
+    @State private var newWord = ""
     
-    var sleepReaults: String {
-        do {
-            let config = MLModelConfiguration()
-            let model = try SleepCalculator(configuration: config)
-            
-            let components = Calendar.current.dateComponents([.hour, .minute], from: wakeUp)
-            let hour = (components.hour ?? 0) * 60 * 60
-            let minute = (components.minute ?? 0) * 60
-            
-            let prediction = try model.prediction(wake: Double(hour + minute), estimatedSleep: sleepAmount, coffee: Double(coffeeAmount))
-            
-            let sleepTime = wakeUp - prediction.actualSleep
-            
-            return sleepTime.formatted(date: .omitted, time: .shortened)
-        } catch {
-            return "There was an error"
-        }
-    }
+    @State private var errorTitle = ""
+    @State private var errorMessage = ""
+    @State private var showingError = false
     
-    static var defaultWakeTime: Date {
-        var components = DateComponents()
-        components.hour = 7
-        components.minute = 0
-        return Calendar.current.date(from: components) ?? .now
-    }
-
     var body: some View {
         NavigationStack {
-            Form {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("When do you want to wake up").font(.headline)
-                    
-                    DatePicker("Please enter a time", selection: $wakeUp, displayedComponents: .hourAndMinute).labelsHidden()
-                    
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Desired amount of sleep").font(.headline)
-                        
-                        Stepper("\(sleepAmount.formatted()) hours", value: $sleepAmount, in: 4...12, step: 0.25)
-                    }
-                    
-                    
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Daily coffee intake").font(.headline)
-                        
-                        Picker("Number of cups", selection: $coffeeAmount) {
-                            ForEach(1...20, id: \.self) {
-                                Text("^[\($0) cup](inflect: true)")
-                            }
-                        }
-                        
-                    }
-                    
-                    Section {
+            List {
+                Section {
+                    TextField("Enter a word", text: $newWord)
+                        .textInputAutocapitalization(.never)
+                }
+                
+                Section {
+                    ForEach(usedWords, id: \.self) { word in
                         HStack {
-                            Text("Your ideal bed time is...").font(.title2)
-                            
-                            Spacer()
-                            
-                            Text(sleepReaults)
-                                .font(.title3)
-                                .foregroundColor(.blue)
+                            Image(systemName: "\(word.count).circle")
+                            Text(word)
                         }
                     }
                 }
-                .navigationTitle("BetterRest")
+            }
+            .navigationTitle(rootWord)
+            .onSubmit(addNewWord)
+            .onAppear(perform: startGame)
+            .alert(errorTitle, isPresented: $showingError) {
+                message: do {
+                    Text(errorMessage)
+                }
             }
         }
     }
     
-    func exampleDates() {
-        let components = Calendar.current.dateComponents([.hour, .minute], from: .now)
-        let hour = components.hour ?? 0
-        let minute = components.minute ?? 0
+    func addNewWord() {
+        let answer = newWord.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard answer.count > 0 else { return }
+        
+        guard isOriginal(word: answer) else {
+            wordError(title: "Word used already", message: "Be more original!")
+            return
+        }
+        
+        guard isPossible(word: answer) else {
+            wordError(title: "Word not possible", message: "You can't spell that word from '\(rootWord)'!")
+            return
+        }
+        
+        guard isReal(word: answer) else {
+            wordError(title: "Word not real", message: "That word is not real!")
+            return
+        }
+        
+        withAnimation {
+            usedWords.insert(answer, at: 0)
+        }
+        newWord = ""
     }
+    
+    func startGame() {
+        if let startWordsURL = Bundle.main.url(forResource: "start", withExtension: "txt") {
+            if let startWords = try? String(contentsOf: startWordsURL) {
+                let allWords = startWords.components(separatedBy: "\n")
+                rootWord = allWords.randomElement() ?? "silkworm"
+                return
+            }
+        }
+        
+        fatalError("Could not load start.txt from bundles.")
+    }
+    
+    func isOriginal(word: String) -> Bool {
+        !usedWords.contains(word)
+    }
+    
+    func isPossible(word: String) -> Bool {
+        var tempWord = rootWord
+        
+        for letter in word {
+            // position
+            if let pos = tempWord.firstIndex(of: letter) {
+                tempWord.remove(at: pos)
+            } else {
+                return false
+            }
+        }
+        
+        return true
+    }
+    
+    func isReal(word: String) -> Bool {
+        let checker = UITextChecker()
+        let range = NSRange(location: 0, length: word.utf16.count)
+        let misspelledRange = checker.rangeOfMisspelledWord(in: word, range: range, startingAt: 0, wrap: false, language: "en")
+        
+        return misspelledRange.location == NSNotFound
+    }
+    
+    func wordError(title: String, message: String) {
+        errorTitle = title
+        errorMessage = message
+        showingError = true
+    }
+    
+    
+//    func testStrings() {
+//        let input = "a b c"
+//        let letters = input.components(separatedBy: " ")
+//        let letter = letters.randomElement()
+//        let trimmed = letter?.trimmingCharacters(in: .whitespacesAndNewlines)
+//
+//        let word = "swift"
+//        let checker = UITextChecker()
+//
+//        let range = NSRange(location: 0, length: word.utf16.count)
+//        let misspelledRange = checker.rangeOfMisspelledWord(in: word, range: range, startingAt: 0, wrap: false, language: "en")
+//
+//        let allGood = misspelledRange.location == NSNotFound
+//    }
+//
+//    func testBundles() {
+//        if let fileURL = Bundle.main.url(forResource: "somefile", withExtension: "txt") {
+//            if let fileContents = try? String(contentsOf: fileURL) {
+//                // we loaded the file into a string.
+//            }
+//        }
+//    }
+    
 }
+   
 
 #Preview {
     ContentView()
