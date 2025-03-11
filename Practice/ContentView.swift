@@ -7,137 +7,138 @@
 
 import SwiftUI
 
-struct ContentView: View {
-    @State private var usedWords = [String]()
-    @State private var rootWord = ""
-    @State private var newWord = ""
+enum Player {
+    case x, o, none
+}
+
+struct Cell: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: 50))
+            .frame(width: 80, height: 80)
+            .foregroundColor(.black)
+            .background(.gray.opacity(0.3))
+            .cornerRadius(10)
+    }
+}
+
+struct RestartButton: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.title2)
+            .padding()
+            .background(.black.gradient)
+            .foregroundStyle(.white)
+            .cornerRadius(10)
+    }
+}
+
+struct StatusText: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.title2.bold())
+            .foregroundColor(.white)
+    }
+}
+
+extension View {
+    func cellStyle() -> some View {
+        modifier(Cell())
+    }
     
-    @State private var errorTitle = ""
-    @State private var errorMessage = ""
-    @State private var showingError = false
+    func buttonStyle() -> some View {
+        modifier(RestartButton())
+    }
+    
+    func statusStyle() -> some View {
+        modifier(StatusText())
+    }
+}
+
+struct ContentView: View {
+    @State private var board: [[Player]] = Array(repeating: Array(repeating: .none, count: 3), count: 3)
+    @State private var currentPlayer: Player = .x
     
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    TextField("Enter a word", text: $newWord)
-                        .textInputAutocapitalization(.never)
-                }
+            ZStack {
+                Text("").frame(maxWidth: .infinity, maxHeight: .infinity).background(.indigo.gradient)
+                    .ignoresSafeArea()
                 
-                Section {
-                    ForEach(usedWords, id: \.self) { word in
-                        HStack {
-                            Image(systemName: "\(word.count).circle")
-                            Text(word)
+                VStack() {
+                    HStack{
+                        Spacer()
+                        VStack {
+                            ForEach(0..<3) { row in
+                                HStack {
+                                    ForEach(0..<3) { col in
+                                        Button {
+                                            makeMove(row: row, col: col)
+                                        } label: {
+                                            Text(board[row][col] == .x ? "X" : board[row][col] == .o ? "O" : "").cellStyle()
+                                        }
+                                    }
+                                }
+                            }
                         }
+                        .padding()
+                        Spacer()
                     }
-                }
+                    .padding()
+                    .background(.regularMaterial)
+                    
+                    HStack {
+                        Button("Restart") {
+                            resetGame()
+                        }.buttonStyle()
+                        
+                        Spacer()
+                        
+                        Text(checkWin(player: .x) ? "X is won!" : checkWin(player: .o) ? "O is won!" : isDraw() ? "Draw!" : "playing...").statusStyle()
+                    }.padding()
+                }.navigationTitle("TicTacToe")
             }
-            .navigationTitle(rootWord)
-            .onSubmit(addNewWord)
-            .onAppear(perform: startGame)
-            .alert(errorTitle, isPresented: $showingError) {
-                message: do {
-                    Text(errorMessage)
-                }
-            }
-        }
+        }.scrollContentBackground(.hidden)
     }
     
-    func addNewWord() {
-        let answer = newWord.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    func makeMove(row: Int, col: Int) {
+        guard !checkWin(player: .x) && !checkWin(player: .o) && !isDraw() else { return }
+        guard board[row][col] == .none else { return }
         
-        guard answer.count > 0 else { return }
-        
-        guard isOriginal(word: answer) else {
-            wordError(title: "Word used already", message: "Be more original!")
-            return
-        }
-        
-        guard isPossible(word: answer) else {
-            wordError(title: "Word not possible", message: "You can't spell that word from '\(rootWord)'!")
-            return
-        }
-        
-        guard isReal(word: answer) else {
-            wordError(title: "Word not real", message: "That word is not real!")
-            return
-        }
-        
-        withAnimation {
-            usedWords.insert(answer, at: 0)
-        }
-        newWord = ""
+        board[row][col] = currentPlayer
+        currentPlayer = (currentPlayer == .x) ? .o : .x
     }
     
-    func startGame() {
-        if let startWordsURL = Bundle.main.url(forResource: "start", withExtension: "txt") {
-            if let startWords = try? String(contentsOf: startWordsURL) {
-                let allWords = startWords.components(separatedBy: "\n")
-                rootWord = allWords.randomElement() ?? "silkworm"
-                return
+    func checkWin(player: Player) -> Bool {
+        for i in 0..<3 {
+            if board[i][0] == player && board [i][1] == player && board[i][2] == player {
+                return true
+            }
+            if board[0][i] == player && board[1][i] == player && board[2][i] == player {
+                return true
             }
         }
         
-        fatalError("Could not load start.txt from bundles.")
-    }
-    
-    func isOriginal(word: String) -> Bool {
-        !usedWords.contains(word)
-    }
-    
-    func isPossible(word: String) -> Bool {
-        var tempWord = rootWord
-        
-        for letter in word {
-            // position
-            if let pos = tempWord.firstIndex(of: letter) {
-                tempWord.remove(at: pos)
-            } else {
-                return false
-            }
+        if board[0][0] == player && board[1][1] == player && board[2][2] == player {
+            return true
+        }
+        if board[2][0] == player && board[1][1] == player && board[0][2] == player {
+            return true
         }
         
-        return true
+        return false
     }
     
-    func isReal(word: String) -> Bool {
-        let checker = UITextChecker()
-        let range = NSRange(location: 0, length: word.utf16.count)
-        let misspelledRange = checker.rangeOfMisspelledWord(in: word, range: range, startingAt: 0, wrap: false, language: "en")
-        
-        return misspelledRange.location == NSNotFound
+    func isDraw() -> Bool {
+        return board.allSatisfy { row in
+            row.allSatisfy { $0 != .none }
+        }
     }
     
-    func wordError(title: String, message: String) {
-        errorTitle = title
-        errorMessage = message
-        showingError = true
+    func resetGame() {
+        board = Array(repeating: Array(repeating: .none, count: 3), count: 3)
+        currentPlayer = .x
     }
-    
-    
-//    func testStrings() {
-//        let input = "a b c"
-//        let letters = input.components(separatedBy: " ")
-//        let letter = letters.randomElement()
-//        let trimmed = letter?.trimmingCharacters(in: .whitespacesAndNewlines)
-//
-//        let word = "swift"
-//        let checker = UITextChecker()
-//
-//        let range = NSRange(location: 0, length: word.utf16.count)
-//        let misspelledRange = checker.rangeOfMisspelledWord(in: word, range: range, startingAt: 0, wrap: false, language: "en")
-//
-//        let allGood = misspelledRange.location == NSNotFound
-//    }
-//
-//    func testBundles() {
-//        if let fileURL = Bundle.main.url(forResource: "somefile", withExtension: "txt") {
-//            if let fileContents = try? String(contentsOf: fileURL) {
-//                // we loaded the file into a string.
-//            }
-//        }
-//    }
     
 }
    
