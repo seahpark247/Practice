@@ -15,8 +15,8 @@ struct Cell: ViewModifier {
     func body(content: Content) -> some View {
         content
             .font(.system(size: 50))
-            .frame(width: 80, height: 80)
             .foregroundColor(.black)
+            .frame(width: 80, height: 80)
             .background(.gray.opacity(0.3))
             .cornerRadius(10)
     }
@@ -26,9 +26,9 @@ struct RestartButton: ViewModifier {
     func body(content: Content) -> some View {
         content
             .font(.title2)
+            .foregroundColor(.white)
             .padding()
             .background(.black.gradient)
-            .foregroundColor(.white)
             .cornerRadius(10)
     }
 }
@@ -68,37 +68,34 @@ struct ContentView: View {
                     HStack {
                         Spacer()
                         VStack {
-                            ForEach(0..<3) { row in
+                            ForEach(0..<3) { col in
                                 HStack {
-                                    ForEach(0..<3) { col in
-                                        Button {
-                                            makeMove(row: row, col: col)
-                                        } label: {
-                                            Text(board[row][col] == .x ? "X" : board[row][col] == .o ? "O" : "").cellStyle()
+                                    ForEach(0..<3) { row in
+                                        Button { makeMove(row: row, col: col) } label: {
+                                            Text(board[row][col] == .x ? "X" : Bool(board[row][col] == .o) ? "O" : "").cellStyle()
+                                            // 버튼 그리고 그 안에 라벨 텍스트에다가 스타일 달아야 함!
                                         }
                                     }
                                 }
                             }
-                        }.padding()
+                        }
                         Spacer()
                     }
-                    .padding()
+                    .padding(.vertical, 30)
                     .background(.regularMaterial)
-                
+                    
                     HStack {
                         Button("Restart") {
                             resetGame()
                         }.buttonStyle()
-                        
                         Spacer()
-                        
                         Text(checkWin(player: .x) ? "X is won!" : checkWin(player: .o) ? "O is won!" : isDraw() ? "Draw!" : "Playing...").statusStyle()
                     }.padding()
                 }
             }.navigationTitle("TicTacToe")
         }.scrollContentBackground(.hidden)
     }
-    
+  
     func makeMove(row: Int, col: Int) {
         guard !checkWin(player: .x) && !checkWin(player: .o) && !isDraw() else {
             return
@@ -108,10 +105,12 @@ struct ContentView: View {
         }
         
         board[row][col] = currentPlayer
-        currentPlayer = (currentPlayer == .x) ? .o : .x
+        currentPlayer = currentPlayer == .x ? .o : .x
     }
     
     func checkWin(player: Player) -> Bool {
+        // for i in 0..<3!!! 바디 밖에서는 for i in 0..<3 쓰기!
+        // 바디 안에서는 ForEach(0..<3) 가능!
         for i in 0..<3 {
             if board[i][0] == player && board[i][1] == player && board[i][2] == player {
                 return true
@@ -141,6 +140,7 @@ struct ContentView: View {
         board = Array(repeating: Array(repeating: .none, count: 3), count: 3)
         currentPlayer = .x
     }
+    
 }
    
 
