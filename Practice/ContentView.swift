@@ -7,29 +7,46 @@
 
 import SwiftUI
 
-enum Player {
-    case x, o, none
-}
-
-struct Cell: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .font(.system(size: 50))
-            .foregroundColor(.black)
-            .frame(width: 80, height: 80)
-            .background(.gray.opacity(0.3))
-            .cornerRadius(10)
+struct FlagImage: View {
+    var imageName: String
+    
+    var body: some View {
+        Image(imageName)
+            .clipShape(Capsule())
+            .shadow(radius: 5)
     }
 }
 
-struct RestartButton: ViewModifier {
+struct Title: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .font(.title2)
+            .font(.largeTitle.bold())
             .foregroundColor(.white)
-            .padding()
-            .background(.black.gradient)
-            .cornerRadius(10)
+    }
+}
+
+struct SubTitle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.headline.bold())
+            .foregroundColor(.secondary)
+    }
+}
+
+struct AnswerTitle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.largeTitle.bold())
+    }
+}
+
+struct MainWrapper: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 20)
+            .background(.regularMaterial)
+            .cornerRadius(20)
     }
 }
 
@@ -42,12 +59,20 @@ struct StatusText: ViewModifier {
 }
 
 extension View {
-    func cellStyle() -> some View {
-        modifier(Cell())
+    func titleStyle() -> some View {
+        modifier(Title())
     }
     
-    func buttonStyle() -> some View {
-        modifier(RestartButton())
+    func subtitleStyle() -> some View {
+        modifier(SubTitle())
+    }
+    
+    func answerTitleStyle() -> some View {
+        modifier(AnswerTitle())
+    }
+    
+    func mainWrapperStyle() -> some View {
+        modifier(MainWrapper())
     }
     
     func statusStyle() -> some View {
@@ -56,94 +81,87 @@ extension View {
 }
 
 struct ContentView: View {
-    @State private var board: [[Player]] = Array(repeating: Array(repeating: .none, count: 3), count: 3)
-    @State private var currentPlayer: Player = .x
-    
+    @State private var countries = ["Estonia", "France", "Germany", "Ireland", "Italy", "Nigeria", "Poland", "Spain", "UK", "Ukraine", "US", "Korea"].shuffled()
+    @State private var answer = Int.random(in: 0...2)
+    @State private var score = 0
+    @State private var showingScore = false
+    @State private var content: String = ""
+    @State private var played = 0
+
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Text("").frame(maxWidth: .infinity, maxHeight: .infinity).background(.indigo.gradient).ignoresSafeArea()
+        ZStack {
+            Text("").frame(maxWidth: .infinity, maxHeight: .infinity).background(.indigo.gradient)
+            
+            VStack {
+                Text("Guess The Flag").titleStyle()
                 
-                VStack {
-                    HStack {
-                        Spacer()
-                        VStack {
-                            ForEach(0..<3) { col in
-                                HStack {
-                                    ForEach(0..<3) { row in
-                                        Button { makeMove(row: row, col: col) } label: {
-                                            Text(board[row][col] == .x ? "X" : Bool(board[row][col] == .o) ? "O" : "").cellStyle()
-                                            // 버튼 그리고 그 안에 라벨 텍스트에다가 스타일 달아야 함!
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Spacer()
+                VStack(spacing: 15) {
+                    VStack {
+                        Text("Tap the flag of").subtitleStyle()
+                        Text(countries[answer]).answerTitleStyle()
                     }
-                    .padding(.vertical, 30)
-                    .background(.regularMaterial)
                     
-                    HStack {
-                        Button("Restart") {
-                            resetGame()
-                        }.buttonStyle()
-                        Spacer()
-                        Text(checkWin(player: .x) ? "X is won!" : checkWin(player: .o) ? "O is won!" : isDraw() ? "Draw!" : "Playing...").statusStyle()
-                    }.padding()
-                }
-            }.navigationTitle("TicTacToe")
-        }.scrollContentBackground(.hidden)
-    }
-  
-    func makeMove(row: Int, col: Int) {
-        guard !checkWin(player: .x) && !checkWin(player: .o) && !isDraw() else {
-            return
+                    ForEach(0..<3) { number in
+                        Button {
+                            flagTapped(number)
+                        } label: {
+                            FlagImage(imageName: countries[number])
+                        }
+                    }
+                }.mainWrapperStyle()
+                
+                HStack {
+                    Text("Score: \(score)")
+                    Spacer()
+                    Text("Played: \(played)/8")
+                }.statusStyle()
+            }.padding()
+        }.alert(content, isPresented: $showingScore) {
+            Button(played == 8 ? "Restart" : "Continue", action: played == 8 ? resetGame : continueGame)
+        } message: {
+            Text("Your score is: \(score), played: \(played)/8")
         }
-        guard board[row][col] == .none else {
-            return
+    }
+
+    func flagTapped(_ number: Int) {
+        played += 1
+        
+        if number == answer {
+            score += 1
+            content = "Correct!"
+        } else {
+            content = "Wrong! The flag you tapped was for \"\(countries[number])\""
         }
         
-        board[row][col] = currentPlayer
-        currentPlayer = currentPlayer == .x ? .o : .x
+        if played == 8 {
+            content += " -And Game Over."
+            
+            if score < 4 {
+                content += " Work Hard!"
+            } else if score < 7 {
+                content += " Good job!"
+            } else {
+                content += " Excellent!"
+            }
+        }
+        
+        showingScore = true
     }
     
-    func checkWin(player: Player) -> Bool {
-        // for i in 0..<3!!! 바디 밖에서는 for i in 0..<3 쓰기!
-        // 바디 안에서는 ForEach(0..<3) 가능!
-        for i in 0..<3 {
-            if board[i][0] == player && board[i][1] == player && board[i][2] == player {
-                return true
-            }
-            if board[0][i] == player && board[1][i] == player && board[2][i] == player {
-                return true
-            }
-        }
-        
-        if board[0][0] == player && board[1][1] == player && board[2][2] == player {
-            return true
-        }
-        if board[0][2] == player && board[1][1] == player && board[2][0] == player {
-            return true
-        }
-        
-        return false
-    }
-    
-    func isDraw() -> Bool {
-        return board.allSatisfy { row in
-            row.allSatisfy { $0 != .none }
-        }
+    func continueGame() {
+        // countries.shuffle()!!!
+        countries.shuffle()
+        answer = Int.random(in: 0...2)
     }
     
     func resetGame() {
-        board = Array(repeating: Array(repeating: .none, count: 3), count: 3)
-        currentPlayer = .x
+        score = 0
+        played = 0
+        continueGame()
     }
     
 }
    
-
 #Preview {
     ContentView()
 }
