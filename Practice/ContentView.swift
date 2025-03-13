@@ -7,159 +7,88 @@
 
 import SwiftUI
 
-struct FlagImage: View {
-    var imageName: String
+struct tipWarning: ViewModifier {
+    var tip: Int
     
-    var body: some View {
-        Image(imageName)
-            .clipShape(Capsule())
-            .shadow(radius: 5)
-    }
-}
-
-struct Title: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .font(.largeTitle.bold())
-            .foregroundColor(.white)
-    }
-}
-
-struct SubTitle: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .font(.headline.bold())
-            .foregroundColor(.secondary)
-    }
-}
-
-struct AnswerTitle: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .font(.largeTitle.bold())
-    }
-}
-
-struct MainWrapper: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 20)
-            .background(.regularMaterial)
-            .cornerRadius(20)
-    }
-}
-
-struct StatusText: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .font(.title2.bold())
-            .foregroundColor(.white)
+            .foregroundColor(tip == 0 ? .red : .primary)
     }
 }
 
 extension View {
-    func titleStyle() -> some View {
-        modifier(Title())
-    }
-    
-    func subtitleStyle() -> some View {
-        modifier(SubTitle())
-    }
-    
-    func answerTitleStyle() -> some View {
-        modifier(AnswerTitle())
-    }
-    
-    func mainWrapperStyle() -> some View {
-        modifier(MainWrapper())
-    }
-    
-    func statusStyle() -> some View {
-        modifier(StatusText())
+    func tipWarningStyle(tip: Int) -> some View {
+        modifier(tipWarning(tip: tip))
     }
 }
 
 struct ContentView: View {
-    @State private var countries = ["Estonia", "France", "Germany", "Ireland", "Italy", "Nigeria", "Poland", "Spain", "UK", "Ukraine", "US", "Korea"].shuffled()
-    @State private var answer = Int.random(in: 0...2)
-    @State private var score = 0
-    @State private var showingScore = false
-    @State private var content: String = ""
-    @State private var played = 0
-
+    @State private var money = 0.0
+    @State private var people = 2
+    @State private var tipPercentage = 20
+    @State private var isShowAlert = false
+    @FocusState private var isFocused: Bool
+    
+    let tipPercentages = [10, 15, 18, 20, 0]
+    
+    var total: Double {
+        let tip = money / 100 * Double(tipPercentage)
+        return tip + money
+    }
+    
+    var split: Double {
+        return total / Double(people + 2)
+    }
+    
     var body: some View {
-        ZStack {
-            Text("").frame(maxWidth: .infinity, maxHeight: .infinity).background(.indigo.gradient)
-            
-            VStack {
-                Text("Guess The Flag").titleStyle()
+        NavigationStack {
+            ZStack {
+                Text("").frame(maxWidth: .infinity, maxHeight: .infinity).background(.green.gradient).ignoresSafeArea()
                 
-                VStack(spacing: 15) {
-                    VStack {
-                        Text("Tap the flag of").subtitleStyle()
-                        Text(countries[answer]).answerTitleStyle()
-                    }
-                    
-                    ForEach(0..<3) { number in
-                        Button {
-                            flagTapped(number)
-                        } label: {
-                            FlagImage(imageName: countries[number])
+                Form {
+                    Section("How Much Money") {
+                        TextField("Amount", value: $money, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                            .keyboardType(.decimalPad)
+                            .focused($isFocused)
+                        
+                        Picker("Number of people", selection: $people) {
+                            ForEach(2..<100) {
+                                Text("\($0) people")
+                            }
                         }
                     }
-                }.mainWrapperStyle()
-                
-                HStack {
-                    Text("Score: \(score)")
-                    Spacer()
-                    Text("Played: \(played)/8")
-                }.statusStyle()
-            }.padding()
-        }.alert(content, isPresented: $showingScore) {
-            Button(played == 8 ? "Restart" : "Continue", action: played == 8 ? resetGame : continueGame)
-        } message: {
-            Text("Your score is: \(score), played: \(played)/8")
-        }
+                    
+                    Section("How Much Tip?") {
+                        Picker("Tip percentages", selection: $tipPercentage) {
+                            ForEach(tipPercentages, id: \.self) {
+                                Text($0, format: .percent)
+                            }
+                        }.pickerStyle(.segmented)
+                    }
+                    
+                    Section("Amount For Check") {
+                        Text(total, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                            .tipWarningStyle(tip: tipPercentage)
+                    }
+                    
+                    Section("Amount Per Person") {
+                        Text(split, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                    }
+                }
+            }
+            .navigationTitle("WeSplit7")
+            .toolbar {
+                // if isFocused!!
+                if isFocused {
+                    Button("Done") {
+                        isFocused = false
+                    }
+                }
+            }
+        }.scrollContentBackground(.hidden)
+        
     }
 
-    func flagTapped(_ number: Int) {
-        played += 1
-        
-        if number == answer {
-            score += 1
-            content = "Correct!"
-        } else {
-            content = "Wrong! The flag you tapped was for \"\(countries[number])\""
-        }
-        
-        if played == 8 {
-            content += " -And Game Over."
-            
-            if score < 4 {
-                content += " Work Hard!"
-            } else if score < 7 {
-                content += " Good job!"
-            } else {
-                content += " Excellent!"
-            }
-        }
-        
-        showingScore = true
-    }
-    
-    func continueGame() {
-        // countries.shuffle()!!!
-        countries.shuffle()
-        answer = Int.random(in: 0...2)
-    }
-    
-    func resetGame() {
-        score = 0
-        played = 0
-        continueGame()
-    }
-    
 }
    
 #Preview {
