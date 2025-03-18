@@ -47,6 +47,7 @@ struct ContentView: View {
                 Form {
                     Section("How much money"){
                         TextField("Money", value: $money, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                            .keyboardType(.decimalPad)
                             .focused($isFocused)
                         
                         Picker("Number of people", selection: $people) {
@@ -73,8 +74,18 @@ struct ContentView: View {
                         Text(split, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
                     }
                 }
-            }.navigationTitle("WeSplit7")
-        }.scrollContentBackground(.hidden)
+            }
+            .navigationTitle("WeSplit7")
+            .toolbar {
+                // 네비게이션 타이틀 붙이는 곳에, 툴바도 같이 붙인다. 같은 라인이니까!
+                if isFocused {
+                    Button("Done") {
+                        isFocused = false
+                    }
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
     }
     
 }
