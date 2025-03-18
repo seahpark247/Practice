@@ -7,96 +7,74 @@
 
 import SwiftUI
 
-struct Capsule: View {
-    var text: String
+struct tipWarning: ViewModifier {
+    var tip: Int
     
-    var body: some View {
-        Text(text)
-            .font(.largeTitle.bold())
-            .foregroundColor(.blue)
-            .padding()
-            .background(.yellow)
-            .clipShape(.capsule)
-    }
-}
-
-struct BlueButton: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .font(.largeTitle.bold())
-            .foregroundColor(.white)
-            .padding()
-            .background(.blue)
-            .cornerRadius(10)
-    }
-}
-
-struct Watermark: ViewModifier {
-    var text: String = ""
-    
-    func body(content: Content) -> some View {
-        ZStack(alignment: .bottomTrailing) {
-            content
-            
-            Text(text)
-                .font(.caption)
-                .foregroundColor(.white)
-                .padding()
-                .background(.black)
-        }
-    }
-}
-
-struct GridStack<Content: View>: View {
-    let rows: Int
-    let cols: Int
-    // @ViewBuilder let content: (Int, Int) -> Content
-    @ViewBuilder let content: (Int, Int) -> Content
-    
-    var body: some View {
-        VStack {
-            ForEach(0..<rows, id: \.self) { row in
-                HStack {
-                    ForEach(0..<cols, id: \.self) { col in
-                        content(row, col)
-                    }
-                }
-            }
-        }
+            .foregroundColor(tip == 0 ? .red : .primary)
     }
 }
 
 extension View {
-    func buttonStyle() -> some View {
-        modifier(BlueButton())
-    }
-    
-    func watermark(_ text: String) -> some View {
-        modifier(Watermark(text: text))
+    func TipWarningStyle(_ tip: Int) -> some View {
+        modifier(tipWarning(tip: tip))
     }
 }
 
 struct ContentView: View {
-    @State private var toggleRed = false
+    @State private var money = 0.0
+    @State private var people = 2
+    @State private var tipPercentage = 18
+    @FocusState private var isFocused: Bool
+    
+    let tipPercentages: [Int] = [10, 15, 18, 20, 0]
+    
+    var total: Double {
+        let tip = money / 100 * Double(tipPercentage)
+        return money + tip
+    }
+    
+    var split: Double {
+        return total / Double(people + 2)
+    }
     
     var body: some View {
-        VStack {
-            Button("toggle red") {
-                toggleRed.toggle()
-            }.foregroundColor(toggleRed ? .red : .primary)
-            
-            Text("modifier").buttonStyle()
-            Capsule(text: "capsule")
-            Color.pink
-                .frame(width: 200, height: 200)
-                .watermark("Watermaked")
-            
-            // GridStack(row: 3, cols: 3) { row, col in }
-            GridStack(rows: 3, cols: 3) { row, col in
-                Image(systemName: "\(row * 3 + col).circle")
-                Text("\(row),\(col)")
-            }.font(.subheadline)
-        }
+        NavigationStack {
+            ZStack {
+                Text("").frame(maxWidth: .infinity, maxHeight: .infinity).background(.green.gradient).ignoresSafeArea()
+                
+                Form {
+                    Section("How much money"){
+                        TextField("Money", value: $money, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                            .focused($isFocused)
+                        
+                        Picker("Number of people", selection: $people) {
+                            ForEach(2..<100){
+                                Text("\($0) people")
+                            }
+                        }
+                    }
+                    
+                    Section("How much money"){
+                        Picker("Tip percentages", selection: $tipPercentage) {
+                            ForEach(tipPercentages, id: \.self) {
+                                Text($0, format: .percent)
+                            }
+                        }.pickerStyle(.segmented)
+                    }
+                    
+                    Section("How much money"){
+                        Text(total, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                            .TipWarningStyle(tipPercentage)
+                    }
+        
+                    Section("How much money"){
+                        Text(split, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                    }
+                }
+            }.navigationTitle("WeSplit7")
+        }.scrollContentBackground(.hidden)
     }
     
 }
