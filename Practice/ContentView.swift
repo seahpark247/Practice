@@ -7,134 +7,112 @@
 
 import SwiftUI
 
-enum Player {
-    case x, o, none
+struct ExpenseItem: Identifiable, Codable {
+    var id = UUID()
+    var name: String
+    let type: String
+    var amount: Double
 }
 
-struct Cell: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .font(.system(size: 50))
-            .foregroundColor(.black)
-            .frame(width: 80, height: 80)
-            .background(.black.opacity(0.3))
-            .cornerRadius(10)
+@Observable
+class Expenses {
+    var items = [ExpenseItem]() {
+        didSet {
+            if let encoded = try? JSONEncoder().encode(items) {
+                UserDefaults.standard.set(encoded, forKey: "Items")
+            }
+        }
+    }
+    
+    init() {
+        if let savedItems = UserDefaults.standard.data(forKey: "Items") {
+            if let decodedItems = try? JSONDecoder().decode([ExpenseItem].self, from: savedItems) {
+                items = decodedItems
+                return
+            }
+        }
+        
+        items = []
     }
 }
 
-struct RestartButton: ViewModifier {
+struct valueWraning: ViewModifier {
+    var value: Double
+    
     func body(content: Content) -> some View {
         content
-            .font(.title2)
-            .foregroundColor(.white)
-            .padding()
-            .background(.black.gradient)
-            .cornerRadius(10)
-    }
-}
-
-struct StatusText: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .font(.title2.bold())
-            .foregroundColor(.white)
+            .foregroundColor(value < 10 ? .blue : value < 100 ? .green : .red)
     }
 }
 
 extension View {
-    func cellStyle() -> some View {
-        modifier(Cell())
+    func ValueWarningStyle(_ value: Double) -> some View {
+        modifier(valueWraning(value: value))
+    }
+}
+
+struct itemsList: View {
+    let expenses: Expenses
+    let type: String
+    
+    var filteredItems: [ExpenseItem] {
+        expenses.items.filter { $0.type == type }
     }
     
-    func buttonStyle() -> some View {
-        modifier(RestartButton())
+    var body: some View {
+        ForEach(filteredItems) { item in
+            HStack {
+                VStack(alignment: .leading) {
+                    Text(item.name).font(.headline)
+                }
+                
+                Spacer()
+                
+                Text(item.amount, format: .currency(code: Locale.current.currency?.identifier ?? "USD")).ValueWarningStyle(item.amount)
+            }
+        }
+        .onDelete(perform: removeItems)
     }
     
-    func statusStyle() -> some View {
-        modifier(StatusText())
+    func removeItems(at offsets: IndexSet) {
+        let itemsToDelete = offsets.map { filteredItems[$0] }
+        
+        for item in itemsToDelete {
+            if let indexInOriginal = expenses.items.firstIndex(where: { $0.id == item.id }) {
+                expenses.items.remove(at: indexInOriginal)
+            }
+        }
     }
 }
 
 struct ContentView: View {
-    @State private var board: [[Player]] = Array(repeating: Array(repeating: .none, count: 3), count: 3)
-    @State private var currentPlayer: Player = .x
+    @State private var expenses = Expenses()
+    @State private var showingAddExpense = false
     
     var body: some View {
         NavigationStack {
-            ZStack {
-                Text("").frame(maxWidth: .infinity, maxHeight: .infinity).background(.indigo.gradient)
-                    .ignoresSafeArea()
-                
-                VStack {
-                    HStack {
-                        Spacer()
-                        VStack {
-                            ForEach(0..<3) { col in
-                                HStack {
-                                    ForEach(0..<3) { row in
-                                        Button {
-                                            makeMove(row: row, col: col)
-                                        } label: {
-                                            Text(board[row][col] == .x ? "X" : board[row][col] == .o ? "O" : "").cellStyle()
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Spacer()
-                    }
-                    .padding(.vertical, 30)
-                    .background(.regularMaterial)
-                    
-                    HStack {
-                        Button("Restart", action: resetBoard)
-                            .buttonStyle()
-                        Spacer()
-                        Text(checkWinner(player: .x) ? "X wins!" : checkWinner(player: .o) ? "O wins!" : isDraw() ? "Draw!" : "Playing...").statusStyle()
-                    }.padding()
+            List {
+                Section("Business") {
+                    itemsList(expenses: expenses, type: "Business")
                 }
-            }.navigationTitle("TicTacToe")
-        }.scrollContentBackground(.hidden)
+                
+                Section("Personal: Limit $100") {
+                    itemsList(expenses: expenses, type: "Personal")
+                }
+                .listRowBackground(Color.pink.opacity(0.1))
+            }
+            .navigationTitle("iExpense")
+            .toolbar {
+                Button("Add Expense", systemImage: "plus") {
+                    showingAddExpense = true
+                }
+            }
+            .sheet(isPresented: $showingAddExpense) {
+                AddView(expenses: expenses)
+            }
+        }
     }
 
-    func makeMove(row: Int, col: Int) {
-        guard board[row][col] == .none && !checkWinner(player: .x) && !checkWinner(player: .o) else { return }
-        
-        board[row][col] = currentPlayer
-        currentPlayer = currentPlayer == .x ? .o : .x
-    }
-    
-    func checkWinner(player: Player) -> Bool {
-        for i in 0..<3 {
-            if board[i][0] == player && board[i][1] == player && board[i][2] == player {
-                return true
-            }
-            if board[0][i] == player && board[1][i] == player && board[2][i] == player {
-                return true
-            }
-        }
-        
-        if board[0][0] == player && board[1][1] == player && board[2][2] == player {
-            return true
-        }
-        if board[0][2] == player && board[1][1] == player && board[2][0] == player {
-            return true
-        }
-        
-        return false
-    }
-    
-    func isDraw() -> Bool {
-        board.allSatisfy { row in
-            row.allSatisfy { $0 != .none }
-        }
-    }
-    
-    func resetBoard() {
-        board = Array(repeating: Array(repeating: .none, count: 3), count: 3)
-        currentPlayer = .x
-    }
-    
 }
    
 #Preview {
