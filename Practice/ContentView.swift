@@ -70,7 +70,7 @@ struct ContentView: View {
                     }
                     
                     Section("Split"){
-                        Text(split, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
+                        Text(String(format: "%.2f", split) + " \(Locale.current.currency?.identifier ?? "USD")")
                     }
                 }
             }
