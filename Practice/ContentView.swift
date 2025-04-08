@@ -7,156 +7,95 @@
 
 import SwiftUI
 
-struct FlagImage: View {
-    var imageName: String
+struct Capsule: View {
+    var text: String
     
     var body: some View {
-        Image(imageName)
-            .clipShape(Capsule())
-            .shadow(radius: 5)
+        Text(text)
+            .font(.largeTitle.bold())
+            .foregroundColor(.blue)
+            .padding()
+            .background(.yellow)
+            .clipShape(.capsule)
     }
 }
 
-struct Title: ViewModifier {
+struct BlueButton: ViewModifier {
     func body(content: Content) -> some View {
         content
             .font(.largeTitle.bold())
             .foregroundColor(.white)
+            .padding()
+            .background(.blue)
+            .cornerRadius(10)
     }
 }
 
-struct SubTitle: ViewModifier {
+struct Watermark: ViewModifier {
+    var text: String = ""
+    
     func body(content: Content) -> some View {
-        content
-            .font(.headline.bold())
-            .foregroundColor(.secondary)
+        ZStack(alignment: .bottomTrailing) {
+            content
+            
+            Text(text)
+                .font(.caption)
+                .foregroundColor(.white)
+                .padding()
+                .background(.black)
+        }
     }
 }
 
-struct AnswerTitle: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .font(.largeTitle.bold())
+struct GridStack<Content: View>: View {
+    let rows: Int
+    let cols: Int
+    @ViewBuilder let content: (Int, Int) -> Content
+    
+    var body: some View {
+        VStack {
+            ForEach(0..<rows, id: \.self) { row in
+                HStack {
+                    ForEach(0..<cols, id: \.self) { col in
+                        content(row, col)
+                    }
+                }
+            }
+        }
     }
-}
-
-struct MainWrapper: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 20)
-            .background(.regularMaterial)
-            .cornerRadius(20)
-    }
-}
-
-struct StatusText: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .font(.title2.bold())
-            .foregroundColor(.white)
-    }
+    
 }
 
 extension View {
-    func titleStyle() -> some View {
-        modifier(Title())
+    func buttonStyle() -> some View {
+        modifier(BlueButton())
     }
     
-    func subtitleStyle() -> some View {
-        modifier(SubTitle())
-    }
-    
-    func answerTitleStyle() -> some View {
-        modifier(AnswerTitle())
-    }
-    
-    func mainWrapperStyle() -> some View {
-        modifier(MainWrapper())
-    }
-    
-    func statusStyle() -> some View {
-        modifier(StatusText())
+    func watermark(_ text: String) -> some View {
+        modifier(Watermark(text: text))
     }
 }
 
 struct ContentView: View {
-    @State private var countries = ["Estonia", "France", "Germany", "Ireland", "Italy", "Nigeria", "Poland", "Spain", "UK", "Ukraine", "US", "Korea"].shuffled()
-    @State private var answer = Int.random(in: 0...2)
-    @State private var score = 0
-    @State private var showingScore = false
-    @State private var content: String = ""
-    @State private var played = 0
+    @State private var toggleRed = false
     
     var body: some View {
-        ZStack {
-            Text("").frame(maxWidth: .infinity, maxHeight: .infinity).background(.indigo.gradient)
+        VStack {
+            Button("toggle red") {
+                toggleRed.toggle()
+            }.foregroundColor(toggleRed ? .red : .primary)
             
-            VStack {
-                Text("Guess The Flag").titleStyle()
-                
-                VStack(spacing: 15) {
-                    VStack {
-                        Text("Tap the flag of").subtitleStyle()
-                        Text(countries[answer]).answerTitleStyle()
-                    }
-                    
-                    ForEach(0..<3) { number in
-                        Button {
-                            flagTapped(number)
-                        } label: {
-                            FlagImage(imageName: countries[number])
-                        }
-                    }
-                }.mainWrapperStyle()
-                
-                HStack {
-                    Text("Score: \(score)")
-                    Spacer()
-                    Text("Played: \(played)/8")
-                }.statusStyle()
-            }.padding()
-        }.alert(content, isPresented: $showingScore) {
-            Button(played == 8 ? "Restart" : "Continue", action: played == 8 ? resetGame : continueGame)
-        } message: {
-            Text("Your score is: \(score), played: \(played)/8")
-        }
-    }
-    
-    func flagTapped(_ number: Int) {
-        played += 1
-        
-        if number == answer {
-            score += 1
-            content = "Correct!"
-        } else {
-            content = "Wrong! The flag you tapped was for \"\(countries[number])\""
-        }
-        
-        if played == 8 {
-            content += " -And Game Over."
+            Text("modifier").buttonStyle()
+            Capsule(text: "capsule")
+            Color.pink
+                .frame(width: 200, height: 200)
+                .watermark("Watermarked")
             
-            if score < 4 {
-                content += " Work Hard!"
-            } else if score < 7 {
-                content += " Good Job!"
-            } else {
-                content += " Excellent!"
-            }
+            GridStack(rows: 3, cols: 3) { row, col in
+                Image(systemName: "\(row * 3 + col).circle")
+                Text("\(row),\(col)")
+            }.font(.subheadline)
         }
-        
-        showingScore = true
-    }
-    
-    func continueGame() {
-        countries.shuffle()
-        answer = Int.random(in: 0...2)
-    }
-    
-    func resetGame() {
-        score = 0
-        played = 0
-        continueGame()
     }
 
 }
