@@ -12,7 +12,7 @@ struct tipWarning: ViewModifier {
     
     func body(content: Content) -> some View {
         content
-            .foregroundColor(tip == 0 ? .red : .primary)
+            .foregroundColor(tip == 0 ? .red: tip >= 18 ? .blue : .primary)
     }
 }
 
@@ -57,7 +57,7 @@ struct ContentView: View {
                         }
                     }
                     
-                    Section("How much money"){
+                    Section("Tip Percentages"){
                         Picker("Tip percentages", selection: $tipPercentage) {
                             ForEach(tipPercentages, id: \.self) {
                                 Text($0, format: .percent)
@@ -65,19 +65,17 @@ struct ContentView: View {
                         }.pickerStyle(.segmented)
                     }
                     
-                    Section("How much money"){
-                        Text(total, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
-                            .TipWarningStyle(tipPercentage)
+                    Section("Total"){
+                        Text(total, format: .currency(code: Locale.current.currency?.identifier ?? "USD")).TipWarningStyle(tipPercentage)
                     }
-        
-                    Section("How much money"){
+                    
+                    Section("Split"){
                         Text(split, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
                     }
                 }
             }
-            .navigationTitle("WeSplit7")
+            .navigationTitle("WeSplit8")
             .toolbar {
-                // 네비게이션 타이틀 붙이는 곳에, 툴바도 같이 붙인다. 같은 라인이니까!
                 if isFocused {
                     Button("Done") {
                         isFocused = false
