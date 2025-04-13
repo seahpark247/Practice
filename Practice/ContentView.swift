@@ -28,7 +28,7 @@ enum TempType: String, CaseIterable {
         }
     }
     
-    func color(for value: Double) -> Color {
+    func color(_ value: Double) -> Color {
         switch self {
         case .celsius:
             switch value {
@@ -58,7 +58,7 @@ struct ContentView: View {
     @State private var output: Double = 0.0
     
     var tempColor: Color {
-        myTemp.color(for: input)
+        myTemp.color(input)
     }
     
     var body: some View {
@@ -71,14 +71,10 @@ struct ContentView: View {
                 Form {
                     Section {
                         Picker("Select your temprature", selection: $myTemp) {
-                            ForEach(TempType.allCases, id: \.self) { type in
-                                Text(type.rawValue)
-                            }
+                            ForEach(TempType.allCases, id: \.self) { Text($0.rawValue) }
                         }
                         .pickerStyle(.segmented)
-                        .onChange(of: myTemp) {
-                            tempConvert()
-                        }
+                        .onChange(of: myTemp) { tempConvert() }
                     }
                     .padding(.top)
                     .listRowBackground(Color.clear)
@@ -86,9 +82,7 @@ struct ContentView: View {
                     Section(myTemp.symbol) {
                         TextField(myTemp.rawValue, value: $input, format: .number)
                             .keyboardType(.decimalPad)
-                            .onChange(of: input) {
-                                tempConvert()
-                            }
+                            .onChange(of: input) { tempConvert() }
                             .multilineTextAlignment(.center)
                     }
                 
