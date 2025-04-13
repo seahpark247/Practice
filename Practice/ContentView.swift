@@ -7,110 +7,112 @@
 
 import SwiftUI
 
-struct ExpenseItem: Identifiable, Codable {
-    var id = UUID()
-    var name: String
-    let type: String
-    var amount: Double
-}
-
-@Observable
-class Expenses {
-    var items = [ExpenseItem]() {
-        didSet {
-            if let encoded = try? JSONEncoder().encode(items) {
-                UserDefaults.standard.set(encoded, forKey: "Items")
-            }
+enum TempType: String, CaseIterable {
+    case celsius = "Celsius"
+    case fahrenheit = "Fahrenheit"
+    
+    var symbol: String {
+        self == .celsius ? "°C" : "°F"
+    }
+    
+    var opposite: TempType {
+        self == .celsius ? .fahrenheit : .celsius
+    }
+    
+    func convert(_ value: Double) -> Double {
+        switch self {
+        case .celsius:
+            return (value * 9.0 / 5.0) + 32.0
+        case .fahrenheit:
+            return (value - 32.0) * 5.0 / 9.0
         }
     }
     
-    init() {
-        if let savedItems = UserDefaults.standard.data(forKey: "Items") {
-            if let decodedItems = try? JSONDecoder().decode([ExpenseItem].self, from: savedItems) {
-                items = decodedItems
-                return
+    func color(for value: Double) -> Color {
+        switch self {
+        case .celsius:
+            switch value {
+            case 34...: return .red
+            case 28..<34: return .orange
+            case 25..<28: return .yellow
+            case 20..<25: return .green
+            case 10..<20: return .blue
+            default: return .gray
             }
-        }
-        
-        items = []
-    }
-}
-
-struct valueWraning: ViewModifier {
-    var value: Double
-    
-    func body(content: Content) -> some View {
-        content
-            .foregroundColor(value < 10 ? .blue : value < 100 ? .green : .red)
-    }
-}
-
-extension View {
-    func ValueWarningStyle(_ value: Double) -> some View {
-        modifier(valueWraning(value: value))
-    }
-}
-
-struct itemsList: View {
-    let expenses: Expenses
-    let type: String
-    
-    var filteredItems: [ExpenseItem] {
-        expenses.items.filter { $0.type == type }
-    }
-    
-    var body: some View {
-        ForEach(filteredItems) { item in
-            HStack {
-                VStack(alignment: .leading) {
-                    Text(item.name).font(.headline)
-                }
-                
-                Spacer()
-                
-                Text(item.amount, format: .currency(code: Locale.current.currency?.identifier ?? "USD")).ValueWarningStyle(item.amount)
-            }
-        }
-        .onDelete(perform: removeItems)
-    }
-    
-    func removeItems(at offsets: IndexSet) {
-        let itemsToDelete = offsets.map { filteredItems[$0] }
-        
-        for item in itemsToDelete {
-            if let indexInOriginal = expenses.items.firstIndex(where: { $0.id == item.id }) {
-                expenses.items.remove(at: indexInOriginal)
+        case .fahrenheit:
+            switch value {
+            case 93.2...: return .red
+            case 82.4..<93.2: return .orange
+            case 77..<82.4: return .yellow
+            case 68..<77: return .green
+            case 50..<68: return .blue
+            default : return .gray
             }
         }
     }
 }
 
 struct ContentView: View {
-    @State private var expenses = Expenses()
-    @State private var showingAddExpense = false
+    @State private var myTemp: TempType = .celsius
+    @State private var input: Double = 0.0
+    @State private var output: Double = 0.0
+    
+    var tempColor: Color {
+        myTemp.color(for: input)
+    }
     
     var body: some View {
         NavigationStack {
-            List {
-                Section("Business") {
-                    itemsList(expenses: expenses, type: "Business")
-                }
+            ZStack {
+                Color.clear
+                    .background(tempColor.gradient.opacity(0.3))
+                    .ignoresSafeArea()
                 
-                Section("Personal: Limit $100") {
-                    itemsList(expenses: expenses, type: "Personal")
+                Form {
+                    Section {
+                        Picker("Select your temprature", selection: $myTemp) {
+                            ForEach(TempType.allCases, id: \.self) { type in
+                                Text(type.rawValue)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .onChange(of: myTemp) {
+                            tempConvert()
+                        }
+                    }
+                    .padding(.top)
+                    .listRowBackground(Color.clear)
+                
+                    Section(myTemp.symbol) {
+                        TextField(myTemp.rawValue, value: $input, format: .number)
+                            .keyboardType(.decimalPad)
+                            .onChange(of: input) {
+                                tempConvert()
+                            }
+                            .multilineTextAlignment(.center)
+                    }
+                
+                    Section {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                            Spacer()
+                        }
+                    }
+                    .listRowBackground(Color.clear)
+                
+                    Section(myTemp.opposite.symbol) {
+                        Text(String(format: "%.2f", output)).frame(maxWidth: .infinity, alignment: .center)
+                    }
                 }
-                .listRowBackground(Color.pink.opacity(0.1))
-            }
-            .navigationTitle("iExpense")
-            .toolbar {
-                Button("Add Expense", systemImage: "plus") {
-                    showingAddExpense = true
-                }
-            }
-            .sheet(isPresented: $showingAddExpense) {
-                AddView(expenses: expenses)
+                .navigationTitle("TempConv")
+                .scrollContentBackground(.hidden)
             }
         }
+    }
+    
+    func tempConvert() {
+        output = myTemp.convert(input)
     }
 
 }
